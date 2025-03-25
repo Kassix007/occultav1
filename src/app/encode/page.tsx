@@ -2,30 +2,25 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { DragDrop } from "@/components/ui/dragDrop";
 
 export default function EncodePage() {
     const [fileToHide, setFileToHide] = useState<File | null>(null);
     const [coverImage, setCoverImage] = useState<File | null>(null);
     const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
 
-    const handleFileToHideChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFileToHide(e.target.files[0]);
-        }
+    const handleFileToHideChange = (file: File) => {
+        setFileToHide(file);
     };
 
-    const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setCoverImage(file);
-
-            // Create preview for the cover image
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setCoverImagePreview(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
+    const handleCoverImageChange = (file: File) => {
+        setCoverImage(file);
+        // Create preview for the cover image
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setCoverImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -51,31 +46,25 @@ export default function EncodePage() {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     File to Hide
                                 </label>
-                                <div className="mt-1 flex items-center">
-                                    <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-blue-500 dark:text-blue-400 rounded-lg shadow-lg tracking-wide uppercase border border-blue-500 dark:border-blue-400 cursor-pointer hover:bg-blue-500 hover:text-white dark:hover:bg-blue-600 transition duration-200">
-                                        <svg
-                                            className="w-8 h-8"
-                                            fill="currentColor"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
-                                        </svg>
-                                        <span className="mt-2 text-sm leading-normal">
-                                            {fileToHide ? fileToHide.name : "Select a file"}
-                                        </span>
-                                        <input
-                                            type="file"
-                                            className="hidden"
-                                            onChange={handleFileToHideChange}
-                                        />
-                                    </label>
+                                <div className="mt-1">
+                                    <DragDrop
+                                        onFileSelect={handleFileToHideChange}
+                                        label="Select a file"
+                                        icon={
+                                            <svg
+                                                className="w-8 h-8"
+                                                fill="currentColor"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                            >
+                                                <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
+                                            </svg>
+                                        }
+                                        color="blue"
+                                        fileName={fileToHide?.name}
+                                        fileSize={fileToHide?.size}
+                                    />
                                 </div>
-                                {fileToHide && (
-                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                        {fileToHide.name} ({(fileToHide.size / 1024).toFixed(2)} KB)
-                                    </p>
-                                )}
                             </div>
 
                             {/* Cover Image Upload */}
@@ -83,32 +72,26 @@ export default function EncodePage() {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Cover Image
                                 </label>
-                                <div className="mt-1 flex items-center">
-                                    <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-green-500 dark:text-green-400 rounded-lg shadow-lg tracking-wide uppercase border border-green-500 dark:border-green-400 cursor-pointer hover:bg-green-500 hover:text-white dark:hover:bg-green-600 transition duration-200">
-                                        <svg
-                                            className="w-8 h-8"
-                                            fill="currentColor"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
-                                        </svg>
-                                        <span className="mt-2 text-sm leading-normal">
-                                            {coverImage ? coverImage.name : "Select an image"}
-                                        </span>
-                                        <input
-                                            type="file"
-                                            className="hidden"
-                                            accept="image/*"
-                                            onChange={handleCoverImageChange}
-                                        />
-                                    </label>
+                                <div className="mt-1">
+                                    <DragDrop
+                                        onFileSelect={handleCoverImageChange}
+                                        accept={{ "image/*": [] }}
+                                        label="Select an image"
+                                        icon={
+                                            <svg
+                                                className="w-8 h-8"
+                                                fill="currentColor"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                            >
+                                                <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
+                                            </svg>
+                                        }
+                                        color="green"
+                                        fileName={coverImage?.name}
+                                        fileSize={coverImage?.size}
+                                    />
                                 </div>
-                                {coverImage && (
-                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                        {coverImage.name} ({(coverImage.size / 1024).toFixed(2)} KB)
-                                    </p>
-                                )}
                             </div>
 
                             {/* Image Preview */}

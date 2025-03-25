@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { DragDrop } from "@/components/ui/dragDrop";
 
 export default function DecodePage() {
     const [stegoImage, setStegoImage] = useState<File | null>(null);
@@ -9,25 +10,24 @@ export default function DecodePage() {
     const [decodedFile, setDecodedFile] = useState<{name: string, size: number, url: string} | null>(null);
     const [isDecoding, setIsDecoding] = useState(false);
 
-    const handleStegoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setStegoImage(file);
+    const handleStegoImageChange = (file: File) => {
+        setStegoImage(file);
+        // Create preview for the stego image
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setStegoImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
 
-            // Create preview for the stego image
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setStegoImagePreview(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
-
-            // Reset decoded file when new image is selected
-            setDecodedFile(null);
-        }
+        // Reset decoded file when new image is selected
+        setDecodedFile(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        // Here you would handle the decoding logic or API call
+        console.log("Stego image:", stegoImage);
+        // Add your decoding logic here
 
         // Simulate decoding process
         setIsDecoding(true);
@@ -53,7 +53,7 @@ export default function DecodePage() {
                 <div className="md:flex">
                     <div className="p-8 w-full">
                         <p className="mt-2 text-gray-500 dark:text-gray-400">
-                            Upload an image containing hidden data to extract the original file.
+                            Upload an image containing hidden data to extract the concealed file.
                         </p>
 
                         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
@@ -62,32 +62,26 @@ export default function DecodePage() {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Image with Hidden Data
                                 </label>
-                                <div className="mt-1 flex items-center">
-                                    <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-purple-500 dark:text-purple-400 rounded-lg shadow-lg tracking-wide uppercase border border-purple-500 dark:border-purple-400 cursor-pointer hover:bg-purple-500 hover:text-white dark:hover:bg-purple-600 transition duration-200">
-                                        <svg
-                                            className="w-8 h-8"
-                                            fill="currentColor"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
-                                        </svg>
-                                        <span className="mt-2 text-sm leading-normal">
-                                            {stegoImage ? stegoImage.name : "Select stego image"}
-                                        </span>
-                                        <input
-                                            type="file"
-                                            className="hidden"
-                                            accept="image/*"
-                                            onChange={handleStegoImageChange}
-                                        />
-                                    </label>
+                                <div className="mt-1">
+                                    <DragDrop
+                                        onFileSelect={handleStegoImageChange}
+                                        accept={{ "image/*": [] }}
+                                        label="Select an image"
+                                        icon={
+                                            <svg
+                                                className="w-8 h-8"
+                                                fill="currentColor"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                            >
+                                                <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
+                                            </svg>
+                                        }
+                                        color="purple"
+                                        fileName={stegoImage?.name}
+                                        fileSize={stegoImage?.size}
+                                    />
                                 </div>
-                                {stegoImage && (
-                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                        {stegoImage.name} ({(stegoImage.size / 1024).toFixed(2)} KB)
-                                    </p>
-                                )}
                             </div>
 
                             {/* Image Preview */}
@@ -127,7 +121,7 @@ export default function DecodePage() {
                                             Decoding...
                                         </>
                                     ) : (
-                                        "Extract Hidden File"
+                                        "Decode and Extract File"
                                     )}
                                 </button>
                             </div>

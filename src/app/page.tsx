@@ -14,7 +14,7 @@ export default function Home()
 
     <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
       <Link href="/encode" passHref>
-            <Card className="hover:shadow-lg transition-shadow bg-white dark:bg-gray-800">
+            <Card className="hover:shadow-lg hover:scale-105 transition duration-300 hover:bg-indigo-200 bg-white dark:bg-gray-800">
               <CardHeader>
                 <CardTitle className="text-2xl text-gray-900 dark:text-white">Encode</CardTitle>
               </CardHeader>
@@ -26,7 +26,7 @@ export default function Home()
             </Card>
       </Link>
         <Link href="/decode" passHref>
-            <Card className="hover:shadow-lg transition-shadow bg-white dark:bg-gray-800">
+            <Card className="hover:shadow-lg hover:scale-105 transition duration-300 hover:bg-indigo-200 bg-white dark:bg-gray-800">
               <CardHeader>
                 <CardTitle className="text-2xl text-gray-900 dark:text-white">Decode</CardTitle>
               </CardHeader>
