@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { DragDrop } from "@/components/ui/dragDrop";
+import Template from "@/components/ui/template";
 
 export default function EncodePage() {
     const [fileToHide, setFileToHide] = useState<File | null>(null);
@@ -33,7 +34,8 @@ export default function EncodePage() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden md:max-w-2xl">
+            <Template>
+                <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden md:max-w-2xl">
                 <div className="md:flex">
                     <div className="p-8 w-full">
                         <p className="mt-2 text-gray-500 dark:text-gray-400">
@@ -124,6 +126,7 @@ export default function EncodePage() {
                     </div>
                 </div>
             </div>
+            </Template>
         </div>
     );
 }
