@@ -36,7 +36,7 @@ export default function AboutPage() {
                                     1. Navigate to the Encode page<br />
                                     2. Select the file you want to hide<br />
                                     3. Choose a cover image to conceal your data<br />
-                                    4. Click "Encode and Hide File" to process<br />
+                                    4. Click &#39;Encode and Hide File&#39; to process<br />
                                     5. Download the resulting image containing your hidden data
                                 </p>
                             </div>
@@ -45,7 +45,7 @@ export default function AboutPage() {
                                 <p className="text-gray-600 dark:text-gray-300">
                                     1. Go to the Decode page<br />
                                     2. Upload the image containing hidden data<br />
-                                    3. Click "Extract Hidden File" to process<br />
+                                    3. Click &#34;Extract Hidden File&#34; to process<br />
                                     4. Download the extracted file
                                 </p>
                             </div>
@@ -91,7 +91,7 @@ export default function AboutPage() {
                         <CardContent>
                             <p className="text-gray-600 dark:text-gray-300 mb-4">
                                 Occulta is an open-source project, and we welcome contributions from the community! 
-                                Whether you're a developer, designer, or documentation writer, there are many ways to help improve the project.
+                                Whether you&#39;re a developer, designer, or documentation writer, there are many ways to help improve the project.
                             </p>
                             <div className="space-y-4">
                                 <div>
