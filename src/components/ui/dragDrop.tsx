@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 
 interface DragDropProps {
@@ -14,8 +14,6 @@ interface DragDropProps {
 }
 
 export function DragDrop({ onFileSelect, accept, label, icon, color, fileName, fileSize }: DragDropProps) {
-    const [isDragging, setIsDragging] = useState(false);
-
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
             onFileSelect(acceptedFiles[0]);
