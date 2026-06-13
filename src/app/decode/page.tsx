@@ -4,15 +4,18 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { DragDrop } from "@/components/ui/dragDrop";
 import Template from "@/components/ui/template";
+import { DecodeResult, StegoDecoder } from "@/utils/StegoUtils";
 
 export default function DecodePage() {
     const [stegoImage, setStegoImage] = useState<File | null>(null);
     const [stegoImagePreview, setStegoImagePreview] = useState<string | null>(null);
-    const [decodedFile, setDecodedFile] = useState<{name: string, size: number, url: string} | null>(null);
+    const [decodedFile, setDecodedFile] = useState<DecodeResult | null>(null);
     const [isDecoding, setIsDecoding] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleStegoImageChange = (file: File) => {
         setStegoImage(file);
+        setError(null);
         // Create preview for the stego image
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -24,28 +27,30 @@ export default function DecodePage() {
         setDecodedFile(null);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Here you would handle the decoding logic or API call
-        console.log("Stego image:", stegoImage);
-        // Add your decoding logic here
 
-        // Simulate decoding process
-        setIsDecoding(true);
+        if (!stegoImage) {
+            setError("A PNG stego image is required.");
+            return;
+        }
 
-        // This is where you would implement your actual decoding logic
-        // For now, we'll simulate with a timeout
-        setTimeout(() => {
-            // Mock decoded file result
-            if (stegoImage) {
-                setDecodedFile({
-                    name: "decoded_file.txt",
-                    size: Math.floor(Math.random() * 100) + 10,
-                    url: "#" // In a real app, this would be a URL or blob URL to the decoded file
-                });
-            }
+        try {
+            setIsDecoding(true);
+            setError(null);
+            setDecodedFile(null);
+            const decoder = new StegoDecoder();
+            const result = await decoder.decode(stegoImage);
+            setDecodedFile(result);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Could not recover payload. Possible causes: wrong image, modified image, or unsupported format."
+            );
+        } finally {
             setIsDecoding(false);
-        }, 1500);
+        }
     };
 
     return (
@@ -55,7 +60,7 @@ export default function DecodePage() {
                 <div className="md:flex">
                     <div className="p-8 w-full">
                         <p className="mt-2 text-gray-500 dark:text-gray-400">
-                            Upload an image containing hidden data to extract the concealed file.
+                            Upload a PNG created by the encoder to extract the concealed file.
                         </p>
 
                         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
@@ -67,8 +72,8 @@ export default function DecodePage() {
                                 <div className="mt-1">
                                     <DragDrop
                                         onFileSelect={handleStegoImageChange}
-                                        accept={{ "image/*": [] }}
-                                        label="Select an image"
+                                        accept={{ "image/png": [".png"] }}
+                                        label="Select a PNG image"
                                         icon={
                                             <svg
                                                 className="w-8 h-8"
@@ -129,6 +134,12 @@ export default function DecodePage() {
                             </div>
                         </form>
 
+                        {error && (
+                            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Results Section */}
                         {decodedFile && (
                             <div className="mt-8 p-4 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/20">
@@ -136,15 +147,15 @@ export default function DecodePage() {
                                 <div className="mt-3 flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600 dark:text-gray-300">
-                                            <span className="font-medium">Filename:</span> {decodedFile.name}
+                                            <span className="font-medium">Filename:</span> {decodedFile.fileName}
                                         </p>
                                         <p className="text-sm text-gray-600 dark:text-gray-300">
-                                            <span className="font-medium">Size:</span> {decodedFile.size} KB
+                                            <span className="font-medium">Size:</span> {(decodedFile.size / 1024).toFixed(2)} KB
                                         </p>
                                     </div>
                                     <a
                                         href={decodedFile.url}
-                                        download={decodedFile.name}
+                                        download={decodedFile.fileName}
                                         className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:focus:ring-offset-gray-800"
                                     >
                                         <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">

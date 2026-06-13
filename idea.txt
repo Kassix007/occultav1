@@ -1,0 +1,708 @@
+## Feasibility
+
+Yes, this is **very feasible as a free, client-side-only side project**, but I would slightly redesign your pipeline.
+
+Your current idea is technically valid:
+
+```text
+file → binary → compress → encrypt → bits → embed in image → extract → decrypt → decompress → file
+```
+
+The main weak point is this part:
+
+> “Apply DCT on 8×8 blocks, embed bits, inverse DCT, save as JPEG”
+
+That sounds correct in theory, but in practice it is risky. JPEG saving involves quantization and re-compression. So if you modify DCT coefficients yourself, then save through a browser canvas/JPEG encoder, the encoder may change the coefficients again and corrupt your hidden data.
+
+So the improved version should be:
+
+```text
+JPEG file → parse actual JPEG DCT coefficients → modify quantized coefficients → re-encode JPEG
+```
+
+Not:
+
+```text
+JPEG → pixels → DCT manually → inverse DCT → browser saves JPEG
+```
+
+That second approach may work sometimes, but it will be fragile.
+
+---
+
+## Best project direction
+
+I would build it in **two modes**:
+
+### Mode 1: Simple mode — PNG LSB steganography
+
+This is easier and good for an MVP.
+
+```text
+cover PNG → pixel RGB values → modify least significant bits → output PNG
+```
+
+Pros:
+
+* Easier to build.
+* Easier to debug.
+* Higher capacity.
+* Fully client-side friendly.
+
+Cons:
+
+* Not robust.
+* If the image is converted to JPEG, resized, compressed, or uploaded to social media, the hidden data will probably break.
+* Easier to detect statistically.
+
+This is the best first version.
+
+---
+
+### Mode 2: Advanced mode — JPEG DCT steganography
+
+This is closer to your original notes.
+
+```text
+cover JPEG
+→ parse JPEG structure
+→ access quantized 8×8 DCT coefficients
+→ select safe AC coefficients
+→ embed encrypted bits
+→ rebuild JPEG
+```
+
+Pros:
+
+* More academically impressive.
+* More aligned with real JPEG steganography.
+* Better than pixel LSB for JPEG images.
+
+Cons:
+
+* Harder.
+* Lower capacity.
+* You need proper JPEG coefficient handling, not just canvas image manipulation.
+* If the image is re-compressed later, the message may still break unless you add redundancy/error correction.
+
+---
+
+## Important correction to your notes
+
+You wrote:
+
+> “Embed bits in the least significant DCT coefficients.”
+
+Better wording:
+
+> “Embed bits in the least significant bits of selected quantized DCT coefficients.”
+
+You do **not** want to use the least significant coefficients. You usually want to use **selected non-zero AC coefficients**, often in the mid-frequency range.
+
+Avoid:
+
+* DC coefficient, because it affects the whole block brightness.
+* Very high-frequency coefficients, because JPEG compression may remove them.
+* Zero coefficients, because changing many zeroes can make the file statistically suspicious.
+* Very large changes, because they become visually noticeable.
+
+Better:
+
+```text
+For each 8×8 block:
+  ignore DC coefficient
+  choose safe mid-frequency AC coefficients
+  skip zero coefficients
+  modify coefficient parity or LSB to match payload bit
+```
+
+Example:
+
+```text
+coefficient is 17, bit to embed is 1 → keep 17
+coefficient is 17, bit to embed is 0 → change to 16
+```
+
+But even this should be done carefully because changing signs, zeroes, and coefficient distributions can make detection easier.
+
+---
+
+## Improved encode pipeline
+
+```text
+1. User selects cover image
+2. User selects payload file
+3. Browser reads both files locally
+4. Payload is packed with metadata
+5. Payload is compressed
+6. Payload is encrypted
+7. Encrypted payload is converted to bitstream
+8. Capacity check is performed
+9. Bits are embedded into image
+10. Stego image is generated and downloaded
+```
+
+A better internal payload format:
+
+```text
+MAGIC_BYTES        example: "STEGv1"
+VERSION            1 byte
+MODE               PNG_LSB or JPEG_DCT
+ORIGINAL_FILENAME
+MIME_TYPE
+ORIGINAL_SIZE
+COMPRESSED_SIZE
+ENCRYPTION_TYPE    AES-GCM
+KDF_TYPE           PBKDF2 or Argon2id
+SALT
+NONCE
+PAYLOAD_LENGTH
+ENCRYPTED_PAYLOAD
+AUTH_TAG
+```
+
+Use compression before encryption. After encryption, the data looks random, so compression will not help much.
+
+For browser crypto, Web Crypto is the correct native API. It provides cryptographic primitives in the browser, and AES-GCM is supported through `SubtleCrypto` parameters. ([MDN Web Docs][1])
+
+For password-based encryption, use a KDF rather than hashing the password directly. Browser-native PBKDF2 can be used through `SubtleCrypto.deriveKey()`. ([MDN Web Docs][2])
+
+Use `crypto.getRandomValues()` for salts and nonces because it provides cryptographically strong random values. ([MDN Web Docs][3])
+
+---
+
+## Improved decode pipeline
+
+```text
+1. User uploads stego image
+2. Browser detects mode or asks user
+3. Extract header bits first
+4. Read payload length and crypto metadata
+5. Extract full encrypted bitstream
+6. Decrypt using password/key
+7. Verify authentication tag
+8. Decompress
+9. Reconstruct original file
+10. Download restored file
+```
+
+Important: decryption failure should not just say “wrong password.” It could also mean:
+
+```text
+wrong password
+wrong image
+damaged/recompressed image
+unsupported stego version
+payload extraction error
+```
+
+So the UI should show:
+
+```text
+Could not recover payload. Possible causes: wrong password, modified image, or unsupported format.
+```
+
+---
+
+## Client-side architecture
+
+```text
+                          ┌──────────────────────┐
+                          │        UI Layer       │
+                          │ React / Svelte / TS   │
+                          └──────────┬───────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────┐
+│                   Client Application Core                  │
+├────────────────────────────────────────────────────────────┤
+│ File Input Module                                           │
+│ - read cover image                                          │
+│ - read payload file                                         │
+│ - validate file size/type                                   │
+│                                                            │
+│ Payload Packer                                              │
+│ - metadata header                                           │
+│ - binary serialization                                      │
+│ - versioning                                                │
+│                                                            │
+│ Compression Module                                          │
+│ - gzip/deflate or library-based compression                 │
+│                                                            │
+│ Crypto Module                                               │
+│ - password → key                                            │
+│ - AES-GCM encrypt/decrypt                                   │
+│ - salt + nonce generation                                   │
+│                                                            │
+│ Stego Engine                                                │
+│ - PNG LSB engine                                            │
+│ - JPEG DCT engine                                           │
+│                                                            │
+│ Quality/Capacity Analyzer                                   │
+│ - max payload estimate                                      │
+│ - PSNR/SSIM-style quality score                             │
+│ - visual diff preview                                       │
+└────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+                          ┌──────────────────────┐
+                          │ Web Worker Layer     │
+                          │ heavy processing     │
+                          └──────────────────────┘
+                                     │
+                                     ▼
+                          ┌──────────────────────┐
+                          │ Download Output      │
+                          │ stego image / file   │
+                          └──────────────────────┘
+```
+
+This is a strong fit for a browser-only app. The browser File API can read local user files without uploading them, and `FileReader` supports asynchronous reading of files or blobs from the user’s computer. ([MDN Web Docs][4])
+
+Heavy image processing should run in a Web Worker so the UI does not freeze. Web Workers run scripts in a background thread separate from the main UI thread, which is useful for expensive processing. ([MDN Web Docs][5])
+
+For image output, canvas can generate a Blob using `HTMLCanvasElement.toBlob()`, but for serious JPEG DCT steganography you should avoid relying only on canvas JPEG export because it re-encodes the image. ([MDN Web Docs][6])
+
+For compression, the browser Compression Streams API supports gzip/deflate-style compression streams, although a library such as `fflate` may still be easier for compatibility/control. ([MDN Web Docs][7])
+
+---
+
+## Recommended tech stack
+
+For the project:
+
+```text
+Frontend:
+- Vite + TypeScript
+- React or Svelte
+- Tailwind optional
+
+Processing:
+- Web Workers
+- Uint8Array / ArrayBuffer everywhere
+- Web Crypto API
+- CompressionStream or fflate
+
+Image:
+- PNG MVP: Canvas/ImageData
+- JPEG advanced: JPEG coefficient parser/encoder or WASM-based JPEG library
+
+Hosting:
+- GitHub Pages
+- Cloudflare Pages
+- Netlify
+```
+
+For free hosting, GitHub Pages is enough because this can be a static site. GitHub’s docs describe Pages as a way to publish a live website from a repository, and GitHub Pages is available with GitHub Free for public repositories. ([GitHub Pages][8])
+
+Cloudflare Pages is also a good free/static option; its docs say it supports deploying static HTML sites and that Pages is available on all plans. ([Cloudflare Docs][9])
+
+---
+
+## Capacity estimation
+
+For PNG LSB:
+
+```text
+capacity bits = width × height × channels × bits_per_channel_used
+```
+
+Example using 1 LSB in RGB:
+
+```text
+1024 × 768 × 3 × 1 = 2,359,296 bits
+≈ 294 KB before overhead
+```
+
+After metadata, encryption overhead, and safety margin, maybe around:
+
+```text
+150 KB – 250 KB practical payload
+```
+
+For JPEG DCT:
+
+```text
+number of 8×8 blocks = width × height / 64
+usable coefficients = blocks × safe_coefficients_per_block
+capacity bits ≈ usable coefficients
+```
+
+Example:
+
+```text
+1024 × 768 image
+= 12,288 blocks
+
+If you safely use 5 coefficients per block:
+12,288 × 5 = 61,440 bits
+≈ 7.6 KB before overhead
+```
+
+So JPEG DCT capacity is much lower than PNG LSB, unless you become aggressive and accept more distortion/detection risk.
+
+---
+
+## Improvements over your original design
+
+### 1. Add a clear header
+
+Without a header, decoding becomes guesswork.
+
+Add:
+
+```text
+magic number
+version
+payload length
+compression method
+encryption method
+filename
+MIME type
+salt
+nonce
+```
+
+---
+
+### 2. Add capacity check before encoding
+
+Before embedding, calculate:
+
+```text
+available bits >= required bits
+```
+
+The app should tell the user:
+
+```text
+Payload too large. Maximum safe payload for this image is around 18 KB.
+```
+
+---
+
+### 3. Add error correction
+
+Especially for JPEG DCT mode.
+
+Use:
+
+```text
+repetition code for header
+Reed-Solomon or simple parity blocks for payload
+checksum/authenticated encryption for validation
+```
+
+Header should be extra robust because if the header is damaged, the whole decode fails.
+
+---
+
+### 4. Add password-based encryption properly
+
+Do not do:
+
+```text
+SHA256(password) → AES key
+```
+
+Better:
+
+```text
+password + random salt → PBKDF2/Argon2id → AES-GCM key
+```
+
+AES-GCM is a good choice because it gives encryption and tamper detection together.
+
+---
+
+### 5. Add visual quality metrics
+
+For the user, show:
+
+```text
+before image
+after image
+difference preview
+estimated distortion
+payload capacity
+```
+
+Engineering metrics:
+
+```text
+MSE
+PSNR
+changed pixel percentage
+changed coefficient percentage
+payload bits per pixel
+```
+
+---
+
+### 6. Avoid grayscale-only unless required
+
+Your notes say:
+
+> “Convert to JPEG to grayscale”
+
+That makes the algorithm simpler, but it also visibly changes many cover images.
+
+Better:
+
+```text
+MVP: use RGB PNG
+Advanced JPEG: work in YCbCr channels
+```
+
+For JPEG, modifying chroma channels may be less visible, but chroma channels are often subsampled/compressed more aggressively, so extraction may be less reliable.
+
+---
+
+### 7. Do not promise “undetectable”
+
+This project can be private and educational, but it should not claim:
+
+```text
+undetectable
+military-grade
+impossible to break
+```
+
+Better wording:
+
+```text
+Client-side educational steganography tool with encryption and local-only processing.
+```
+
+---
+
+## Engineering plan
+
+### Phase 1 — Core binary pipeline
+
+Build and test this without images first.
+
+```text
+file → Uint8Array
+Uint8Array → compressed bytes
+compressed bytes → encrypted bytes
+encrypted bytes → bitstream
+bitstream → encrypted bytes
+encrypted bytes → decrypted bytes
+decrypted bytes → decompressed file
+```
+
+Deliverable:
+
+```text
+Upload file → encrypt/compress → decrypt/decompress → download original file
+```
+
+No steganography yet.
+
+---
+
+### Phase 2 — PNG LSB MVP
+
+Implement simple pixel-based hiding.
+
+Encode:
+
+```text
+load PNG
+get ImageData
+embed header + encrypted payload into RGB LSBs
+export PNG
+```
+
+Decode:
+
+```text
+load PNG
+read RGB LSBs
+extract header
+extract encrypted payload
+decrypt
+download file
+```
+
+Deliverable:
+
+```text
+Hide a small .txt, .pdf, or .zip inside a PNG and recover it.
+```
+
+---
+
+### Phase 3 — Add reliability features
+
+Add:
+
+```text
+capacity calculator
+payload size warning
+header repetition
+checksum/authentication validation
+progress bar
+Web Worker processing
+```
+
+Deliverable:
+
+```text
+The app no longer freezes on large images.
+```
+
+---
+
+### Phase 4 — JPEG DCT research mode
+
+Implement the advanced version.
+
+Required logic:
+
+```text
+JPEG parser
+quantization table reader
+Huffman/entropy decode
+DCT coefficient access
+coefficient selection strategy
+bit embedding
+JPEG rebuild
+```
+
+Simpler path:
+
+```text
+use an existing JS/WASM JPEG coefficient library
+wrap it in your own stego engine
+```
+
+Deliverable:
+
+```text
+Hide small encrypted payloads inside JPEG DCT coefficients.
+```
+
+---
+
+### Phase 5 — Testing
+
+Test cases:
+
+```text
+wrong password
+wrong image
+payload too large
+empty file
+large file
+image with alpha channel
+small image
+same image after browser download
+image after re-upload
+image after WhatsApp/social compression
+```
+
+Expected result:
+
+```text
+PNG LSB survives exact file transfer.
+PNG LSB fails after JPEG conversion.
+JPEG DCT may survive normal viewing/downloading.
+JPEG DCT may fail after aggressive recompression.
+```
+
+---
+
+### Phase 6 — Deployment
+
+Use:
+
+```text
+GitHub repo
+GitHub Pages or Cloudflare Pages
+no backend
+no analytics initially
+no server upload
+privacy-first README
+```
+
+Add README sections:
+
+```text
+What it does
+What it does not guarantee
+Client-side privacy model
+Supported image types
+Maximum payload size
+Limitations
+```
+
+---
+
+## Final recommended architecture
+
+```text
+stego-app/
+├─ src/
+│  ├─ app/
+│  │  ├─ EncodePage.tsx
+│  │  ├─ DecodePage.tsx
+│  │  └─ PrivacyPage.tsx
+│  │
+│  ├─ core/
+│  │  ├─ bitstream.ts
+│  │  ├─ payloadFormat.ts
+│  │  ├─ compression.ts
+│  │  ├─ crypto.ts
+│  │  └─ capacity.ts
+│  │
+│  ├─ stego/
+│  │  ├─ pngLsbEncode.ts
+│  │  ├─ pngLsbDecode.ts
+│  │  ├─ jpegDctEncode.ts
+│  │  └─ jpegDctDecode.ts
+│  │
+│  ├─ workers/
+│  │  ├─ encode.worker.ts
+│  │  └─ decode.worker.ts
+│  │
+│  └─ utils/
+│     ├─ file.ts
+│     ├─ download.ts
+│     └─ imagePreview.ts
+│
+├─ public/
+├─ tests/
+├─ README.md
+└─ package.json
+```
+
+---
+
+## My suggested build order
+
+Build it like this:
+
+```text
+1. File encryption/decryption tool
+2. PNG LSB steganography
+3. Capacity estimator
+4. Web Worker performance
+5. Better UI/preview
+6. JPEG DCT mode
+7. Error correction
+8. Publish on GitHub Pages or Cloudflare Pages
+```
+
+That gives you a working project early, then the DCT/JPEG part becomes the impressive advanced feature rather than the thing blocking the whole project.
+
+[1]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API?utm_source=chatgpt.com "Web Crypto API - MDN Web Docs"
+[2]: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey?utm_source=chatgpt.com "SubtleCrypto: deriveKey() method - Web APIs | MDN"
+[3]: https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues?utm_source=chatgpt.com "Crypto: getRandomValues() method - Web APIs | MDN"
+[4]: https://developer.mozilla.org/en-US/docs/Web/API/FileReader?utm_source=chatgpt.com "FileReader - Web APIs | MDN"
+[5]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers?utm_source=chatgpt.com "Using Web Workers - Web APIs - MDN Web Docs"
+[6]: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob?utm_source=chatgpt.com "HTMLCanvasElement: toBlob() method - Web APIs | MDN"
+[7]: https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream?utm_source=chatgpt.com "CompressionStream - Web APIs | MDN"
+[8]: https://pages.github.com/?utm_source=chatgpt.com "GitHub Pages documentation - GitHub Docs"
+[9]: https://developers.cloudflare.com/pages/framework-guides/deploy-anything/?utm_source=chatgpt.com "Static HTML · Cloudflare Pages docs"
